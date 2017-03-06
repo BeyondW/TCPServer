@@ -16,3 +16,12 @@ const SOCKET& Client::getSocket() const
 	return soct;
 }
 
+Client::~Client()
+{
+	int code = closesocket(soct);
+	if (code == SOCKET_ERROR)
+	{
+		//log
+	}
+}
+

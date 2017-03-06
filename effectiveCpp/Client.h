@@ -6,6 +6,7 @@ class Client
 {
 public:
 	Client(SOCKET s, TimePoint curTime) :soct(s), activeTime(curTime){};
+	~Client();
 	const TimePoint& getActiveTime() const;
 	void setActiveTime(const TimePoint& curTime);
 	const SOCKET& getSocket() const;

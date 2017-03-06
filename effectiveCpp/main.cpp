@@ -8,18 +8,19 @@
 #include <mutex>
 #include <iomanip>      // std::put_time
 #include <ctime>		// std::time_t, struct std::tm, std::localtime
+#include <memory>
 #include <WinSock2.h> 
 #include "Client.h"
 
 #pragma comment(lib,"Ws2_32.lib")  
 
 
-
+typedef std::shared_ptr<Client> ClientPtr;
 
 std::mutex vLock;
 std::mutex stdLock;
 std::mutex timeLock;
-std::vector<Client> clientList;
+std::vector<ClientPtr> clientList;
 TimePoint lastTestTime;
 
 void heartBeat()
@@ -29,28 +30,24 @@ void heartBeat()
 		vLock.lock();
 		if (clientList.size())
 		{
-			
-			TimePoint curTime = std::chrono::system_clock::now();
-			int s = std::chrono::duration_cast<std::chrono::seconds>(curTime - lastTestTime).count();
-			if (s >= 1)
+			std::this_thread::sleep_for(std::chrono::seconds(1));
+			//send hb msg
+			char buf[2] = "h";
+			for (auto clientPtr : clientList)
 			{
-				char buf[2] = "h";
-				for (auto client : clientList)
-				{
-					send(client.getSocket(), buf, strlen(buf) + 1, 0);
-					stdLock.lock();
-					std::cout << "heartBeat:send hb|" << std::endl;
-					stdLock.unlock();
-				}
-
-				lastTestTime = curTime;
+				send(clientPtr->getSocket(), buf, strlen(buf) + 1, 0);
+				stdLock.lock();
+				std::cout << "heartBeat:send hb|" << std::endl;
+				stdLock.unlock();
 			}
-			//now - activetime > value delete client
+
+			
+			//test active clients
 			for (auto it = clientList.begin(); it != clientList.end();)
 			{
 				timeLock.lock();
 				TimePoint curTime = std::chrono::steady_clock::now();
-				int activeDuration = std::chrono::duration_cast<std::chrono::seconds>(curTime - it->getActiveTime()).count();
+				int activeDuration = std::chrono::duration_cast<std::chrono::seconds>(curTime - it->get()->getActiveTime()).count();
 				timeLock.unlock();
 				if (activeDuration > 5)
 				{
@@ -69,13 +66,18 @@ void heartBeat()
 
 }
 
-void recvMsg(Client& client)
+void recvMsg(ClientPtr clientPtr)
 {
-	char buf[1024] = "";
+	
 
 	while (true)
 	{
-		recv(client.getSocket(), buf, 1024, 0);
+		if (clientPtr.use_count() == 2)
+		{
+			break;
+		}
+		char buf[1024] = "";
+		recv(clientPtr->getSocket(), buf, 1024, 0);
 		//if  buf = heart flag
 		stdLock.lock();
 		std::cout << "recvMsg:get msg" << std::endl;
@@ -84,7 +86,7 @@ void recvMsg(Client& client)
 		{
 			TimePoint curTime = std::chrono::system_clock::now();
 			timeLock.lock();
-			client.setActiveTime(curTime);
+			clientPtr->setActiveTime(curTime);
 			timeLock.unlock();
 			auto t = std::chrono::system_clock::to_time_t(curTime);
 			stdLock.lock();
@@ -97,7 +99,7 @@ void recvMsg(Client& client)
 			vLock.lock();
 			for (auto c : clientList)
 			{
-				send(c.getSocket(), buf, strlen(buf) + 1, 0);
+				send(c->getSocket(), buf, strlen(buf) + 1, 0);
 			}
 			vLock.unlock();
 		}
@@ -220,12 +222,12 @@ int main()
 		{
 			continue;
 		}
-		Client client(newConnection, std::chrono::system_clock::now());
+		auto p = new Client(newConnection, std::chrono::system_clock::now());
+		ClientPtr cp(p);
 		vLock.lock();
-		clientList.push_back(client);
-		Client& cTemp = clientList.back();
+		clientList.push_back(cp);
 		vLock.unlock();
-		std::thread t(recvMsg, std::ref(cTemp));
+		std::thread t(recvMsg, cp);
 		t.detach();
 		stdLock.lock();
 		std::cout << "New Client Connected" << std::endl;
