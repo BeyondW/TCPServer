@@ -25,3 +25,8 @@ Client::~Client()
 	}
 }
 
+void Client::setId(unsigned int id)
+{
+	clientId = id;
+}
+

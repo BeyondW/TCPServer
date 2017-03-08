@@ -8,7 +8,8 @@
 #include <mutex>
 #include <iomanip>      // std::put_time
 #include <ctime>		// std::time_t, struct std::tm, std::localtime
-#include <memory>
+#include <memory>		// std::shared_ptr
+#include <atomic>
 #include <WinSock2.h> 
 #include "Client.h"
 
@@ -22,7 +23,7 @@ std::mutex stdLock;
 std::mutex timeLock;
 std::vector<ClientPtr> clientList;
 TimePoint lastTestTime;
-
+std::atomic<unsigned int> curClientId = 0;
 void heartBeat()
 {
 	while (true)
@@ -52,7 +53,7 @@ void heartBeat()
 				if (activeDuration > 5)
 				{
 					it = clientList.erase(it);//to do close socket
-					std::cout << "erase client" << activeDuration << std::endl;
+					std::cout << "erase client"  << std::endl;
 				}
 				else
 				{
@@ -72,7 +73,7 @@ void recvMsg(ClientPtr clientPtr)
 
 	while (true)
 	{
-		if (clientPtr.use_count() == 2)
+		if (clientPtr.unique())
 		{
 			break;
 		}
@@ -222,15 +223,16 @@ int main()
 		{
 			continue;
 		}
-		auto p = new Client(newConnection, std::chrono::system_clock::now());
+		curClientId++;
+		auto p = new Client(newConnection, std::chrono::system_clock::now(), curClientId);
 		ClientPtr cp(p);
 		vLock.lock();
 		clientList.push_back(cp);
 		vLock.unlock();
-		std::thread t(recvMsg, cp);
+		std::thread t(recvMsg, std::ref(cp));
 		t.detach();
 		stdLock.lock();
-		std::cout << "New Client Connected" << std::endl;
+		std::cout << "New Client Connected" << "id:" << curClientId << std::endl;
 		stdLock.unlock();
 	}
 	
