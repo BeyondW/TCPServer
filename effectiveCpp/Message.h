@@ -49,20 +49,31 @@ unsigned int getType(const char* src)
 	return i;
 }
 
-//拆包函数
+//拆包函数msgBuff:未处理的字节流，buff：当前接受到的字节流，str：内容字符串
 bool splitPacket(const char* buff, std::string& str, std::string& msgBuff)
 {
 	msgBuff += buff;
 	auto pos = msgBuff.find("@HEAD");
 	if (pos != std::string::npos)
 	{
-		if (!isOverStringBound(pos + 5, msgBuff))
+		std::size_t testPos = pos + 5;
+		//消息长度的长度位是否越界
+		if (!isOverStringBound(testPos, msgBuff))
 		{
-			int msgLength = msgBuff[pos + 5];
-			if (!isOverStringBound(pos + 5 + msgLength, msgBuff))
+			unsigned int msgLengthLength = msgBuff[pos + 5];
+			testPos += msgLengthLength;
+			//消息长度位是否越界
+			if (!isOverStringBound(testPos, msgBuff))
 			{
-				str = msgBuff.substr(pos + 5, msgLength);
-				msgBuff.erase(0, pos + 5 + msgLength);
+				std::string lengthStr = msgBuff.substr(pos + 5 + 1, msgLengthLength);
+				unsigned int msgLength = std::atoi(lengthStr.c_str());
+				testPos += msgLength;
+				//消息是否越界
+				if (!isOverStringBound(testPos, msgBuff))
+				{
+					str = msgBuff.substr(testPos - msgLength + 1, msgLength);
+					msgBuff.erase(0, testPos + 1);
+				}
 				return true;
 			}
 		}
@@ -71,9 +82,19 @@ bool splitPacket(const char* buff, std::string& str, std::string& msgBuff)
 	return false;
 }
 
+
+
 //to do 组包函数
 std::string producePacket(std::string& msg)
 {
-	std::string packet = "@HEAD" + msg.length() + msg;
+	//@HEAD + 长度变量所占长度（１－２５５） +　长度字节数组　＋　内容
+	//eg. @HEAD15ABCDE
+	std::string lengthStr = std::to_string(msg.length());
+	unsigned int length = (unsigned int)lengthStr.length();
+	std::string packet = "@HEAD";
+	packet += (char)length;
+	packet += lengthStr;
+	packet += msg;
 	return packet;
 }
+

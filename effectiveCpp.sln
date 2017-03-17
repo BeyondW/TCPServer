@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "server", "effectiveCpp\effe
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "client", "client\client.vcxproj", "{8B140213-A4AF-4AC6-8B7E-622379BA5316}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UnitTest", "UnitTest\UnitTest.vcxproj", "{C7B6C23B-6A42-4C60-8647-A097954F9B81}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -21,6 +23,10 @@ Global
 		{8B140213-A4AF-4AC6-8B7E-622379BA5316}.Debug|Win32.Build.0 = Debug|Win32
 		{8B140213-A4AF-4AC6-8B7E-622379BA5316}.Release|Win32.ActiveCfg = Release|Win32
 		{8B140213-A4AF-4AC6-8B7E-622379BA5316}.Release|Win32.Build.0 = Release|Win32
+		{C7B6C23B-6A42-4C60-8647-A097954F9B81}.Debug|Win32.ActiveCfg = Debug|Win32
+		{C7B6C23B-6A42-4C60-8647-A097954F9B81}.Debug|Win32.Build.0 = Debug|Win32
+		{C7B6C23B-6A42-4C60-8647-A097954F9B81}.Release|Win32.ActiveCfg = Release|Win32
+		{C7B6C23B-6A42-4C60-8647-A097954F9B81}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -12,7 +12,7 @@
 #include <atomic>
 #include <WinSock2.h> 
 #include "Client.h"
-
+#include "Message.h"
 #pragma comment(lib,"Ws2_32.lib")  
 
 
@@ -25,41 +25,6 @@ std::vector<ClientPtr> clientList;
 TimePoint lastTestTime;
 std::atomic<unsigned int> curClientId = 0;
 std::string msgBuff = "";
-
-bool isOverStringBound(std::size_t pos, const std::string& str)
-{
-	return pos > str.length() ? true : false;
-	
-}
-
-//拆包函数
-bool splitPacket(const char* buff, std::string& str)
-{
-	msgBuff += buff;
-	auto pos = msgBuff.find("@HEAD");
-	if (pos != std::string::npos)
-	{
-		if (!isOverStringBound(pos + 5, msgBuff))
-		{
-			int msgLength = msgBuff[pos + 5];
-			if (!isOverStringBound(pos + 5 + msgLength, msgBuff))
-			{
-				str = msgBuff.substr(pos + 5, msgLength);
-				msgBuff.erase(0, pos + 5 + msgLength);
-				return true;
-			}
-		}
-
-	}
-	return false;
-}
-
-//to do 组包函数
-std::string producePacket(std::string& msg)
-{
-	std::string packet = "@HEAD" + msg.length() + msg;
-	return packet;
-}
 
 void heartBeat()
 {
@@ -106,8 +71,6 @@ void heartBeat()
 
 void recvMsg(ClientPtr clientPtr)
 {
-	
-
 	while (true)
 	{
 		if (clientPtr.unique())
@@ -117,14 +80,22 @@ void recvMsg(ClientPtr clientPtr)
 		char buf[1024] = "";
 		recv(clientPtr->getSocket(), buf, 1024, 0);
 		std::string str = "";
-		if (!splitPacket(buf, str))
+		if (!splitPacket(buf, str, msgBuff))
 		{
 			continue;
 		}
-		//if  buf = heart flag
 		stdLock.lock();
 		std::cout << "recvMsg:get msg" << std::endl;
 		stdLock.unlock();
+		//if  buf = heart flag
+		unsigned int type = getType(str.c_str());
+		if (type == HEARTBEAT)
+		{
+			Msg hbMsg;
+			deserialize(&hbMsg, str.c_str(), str.length());
+		}
+		
+
 		if (!memcmp(str.c_str(), "h", 1))
 		{
 			TimePoint curTime = std::chrono::system_clock::now();
