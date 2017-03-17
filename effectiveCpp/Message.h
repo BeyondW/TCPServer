@@ -3,10 +3,10 @@
 
 
 const unsigned int HEARTBEAT = 1;
+const unsigned int CHATMSG = 2;
 
 struct Msg
 {
-	unsigned int length;
 	unsigned int type;
 	unsigned int clientId;
 };
@@ -42,10 +42,10 @@ bool isOverStringBound(std::size_t pos, const std::string& str)
 
 }
 
-unsigned int getType(const char* src)
+unsigned int getType(const std::string& str)
 {
 	unsigned int i = 0;
-	memcpy(&i, src, sizeof(unsigned int));
+	memcpy(&i, str.c_str(), sizeof(unsigned int));
 	return i;
 }
 

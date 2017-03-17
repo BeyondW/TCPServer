@@ -11,6 +11,7 @@ public:
 	void setActiveTime(const TimePoint& curTime);
 	const SOCKET& getSocket() const;
 	void setId(unsigned int id);
+	unsigned int getId();
 private:
 
 	TimePoint activeTime;

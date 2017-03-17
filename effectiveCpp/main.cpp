@@ -87,35 +87,41 @@ void recvMsg(ClientPtr clientPtr)
 		stdLock.lock();
 		std::cout << "recvMsg:get msg" << std::endl;
 		stdLock.unlock();
-		//if  buf = heart flag
-		unsigned int type = getType(str.c_str());
-		if (type == HEARTBEAT)
+		//ÀàÐÍÅÐ¶Ï
+		switch (getType(str.c_str()))
 		{
-			Msg hbMsg;
-			deserialize(&hbMsg, str.c_str(), str.length());
-		}
-		
-
-		if (!memcmp(str.c_str(), "h", 1))
-		{
-			TimePoint curTime = std::chrono::system_clock::now();
-			timeLock.lock();
-			clientPtr->setActiveTime(curTime);
-			timeLock.unlock();
-			auto t = std::chrono::system_clock::to_time_t(curTime);
-			stdLock.lock();
-			std::cout << "recvMsg:set active time:" << std::put_time(std::localtime(&t), "%Y-%m-%d %X") << std::endl;
-			stdLock.unlock();
-		}
-		else
-		{
-			//broadcast
-			vLock.lock();
-			for (auto c : clientList)
+			case HEARTBEAT:
 			{
-				send(c->getSocket(), str.c_str(), strlen(str.c_str()) + 1, 0);
+				Msg hbMsg;
+				deserialize(&hbMsg, str.c_str(), str.length());
+				TimePoint curTime = std::chrono::system_clock::now();
+				timeLock.lock();
+				clientPtr->setActiveTime(curTime);
+				timeLock.unlock();
+				auto t = std::chrono::system_clock::to_time_t(curTime);
+				stdLock.lock();
+				std::cout << "ClientId = " << hbMsg.type << " recvMsg:set active time:" << std::put_time(std::localtime(&t), "%Y-%m-%d %X") << std::endl;
+				stdLock.unlock();
+				break;
 			}
-			vLock.unlock();
+			case CHATMSG:
+			{
+				ChatMsg msg;
+				deserialize(&msg, str.c_str(), str.length());
+				vLock.lock();
+				for (auto c : clientList)
+				{
+					if (c->getId() != msg.clientId)
+					{
+						send(c->getSocket(), str.c_str(), str.length(), 0);
+					}
+					
+				}
+				vLock.unlock();
+				break;
+			}
+			default:
+				break;
 		}
 	}
 }

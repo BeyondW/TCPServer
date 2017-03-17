@@ -30,3 +30,8 @@ void Client::setId(unsigned int id)
 	clientId = id;
 }
 
+unsigned int Client::getId()
+{
+	return clientId;
+}
+
