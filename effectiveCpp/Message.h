@@ -60,7 +60,7 @@ bool splitPacket(const char* curBuff, unsigned int recvLength, char* str, std::s
 	auto pos = msgBuff.find("@HEAD");
 	if (pos != std::string::npos)
 	{
-		std::size_t testPos = pos + 4 + 4;
+		std::size_t testPos = pos + 8;
 		//消息长度是否越界
 		if (!isOverStringBound(testPos, msgBuff))
 		{

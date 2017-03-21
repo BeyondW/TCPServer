@@ -15,18 +15,19 @@ unsigned int clientId = 0;
 
 void getMsg(SOCKET clientSocket)
 {
-	char buf[1024];
-	int iResult;
+	char buf[250];
+	int recvLength;
 	while (true)
 	{
-		iResult = recv(clientSocket, buf, 1024, 0);
-		if (iResult <= 0)
+		recvLength = recv(clientSocket, buf, 250, 0);
+		if (recvLength <= 0)
 		{
 			break;
 		}
-		char str[1024] = "";
+		//std::cout << "recv msg" << endl;
+		char str[250] = "";
 		unsigned int length;
-		if (!splitPacket(buf, str, msgBuff, length))
+		if (!splitPacket(buf, recvLength, str, msgBuff, length))
 		{
 			continue;
 		}
@@ -39,18 +40,18 @@ void getMsg(SOCKET clientSocket)
 		case HEARTBEAT:
 		{
 			Msg hbMsg;
-			deserialize(&hbMsg, str, length);
+			memcpy(&hbMsg, str, length);
 		/*	TimePoint curTime = std::chrono::system_clock::now();
 			auto t = std::chrono::system_clock::to_time_t(curTime);
 			stdLock.lock();
 			std::cout << "Server active time:" << std::put_time(std::localtime(&t), "%Y-%m-%d %X") << std::endl;
 			stdLock.unlock();*/
-			clientId = hbMsg.clientId;
+			/*clientId = hbMsg.clientId;
 			char classBuff[1024];
-			serialize(classBuff, &hbMsg, sizeof(hbMsg));
+			memcpy(classBuff, &hbMsg, sizeof(hbMsg));
 			std::string msgStr(classBuff, sizeof(hbMsg));
 			std::string buffer = producePacket(msgStr);
-			send(clientSocket, buffer.c_str(), buffer.length(), 0);
+			send(clientSocket, buffer.c_str(), buffer.length(), 0);*/
 			/*stdLock.lock();
 			std::cout << "heartBeat:send hb|" << std::endl;
 			stdLock.unlock();*/
@@ -60,9 +61,25 @@ void getMsg(SOCKET clientSocket)
 		case CHATMSG:
 		{
 			ChatMsg msg;
-			deserialize(&msg, str, length);
+			memcpy(&msg, str, length);
+			if (clientId == 0)
+			{
+				clientId = msg.clientId;
+			}
 			stdLock.lock();
+			for (int i = 0; i <= 50; i++)
+			{
+				std::cout << "*";
+			}
+			std::cout << endl;
+			
 			std::cout << msg.clientId << ":" << msg.content << endl;
+			
+			for (int i = 0; i <= 50; i++)
+			{
+				std::cout << "*";
+			}
+			std::cout << endl;
 			stdLock.unlock();
 			break;
 		}
@@ -79,14 +96,15 @@ void rsnonBlockExample(const SOCKET& clientSocket)
 	t.detach();
 	std::string str;
 	char buf[1024];
-	int iResult;
+	int sendLength;
 	while (1)
 	{
 		cin >> str;
-		produceChatMsg(buf, str, clientId);
-		std::string msgStr(buf, sizeof(ChatMsg));
-		std::string buffer = producePacket(msgStr);
-		iResult = send(clientSocket, buffer.c_str(), length, 0);
+		char content[212] = "";
+		produceChatMsg(content, str, clientId);//ChatMsg的长度就是sizeof(ChatMsg)
+		char buffer[1024] = "";
+		producePacket(content, sizeof(ChatMsg), buffer);
+		sendLength = send(clientSocket, buffer, 1024, 0);
 	}
 }
 
@@ -94,8 +112,6 @@ void rsnonBlockExample(const SOCKET& clientSocket)
 
 int main()
 {
-	
-	
 	WSADATA wsa;
 	WSAStartup(MAKEWORD(1, 1), &wsa);	//初始化WS2_32.DLL
 
@@ -109,14 +125,8 @@ int main()
 	serveraddr.sin_addr.S_un.S_addr = inet_addr("127.0.0.1");
 	
 	connect(clientSocket, (SOCKADDR *)&serveraddr, sizeof(serveraddr));
-	cout << "连接成功!" << endl;
-
-	//发送数据
-	cout << "请输入发送给服务器的字符:" << endl;
 
 	rsnonBlockExample(clientSocket);
-
-	//接收数据
 	
 	//关闭套接字
 	closesocket(clientSocket);

@@ -28,50 +28,50 @@ std::string msgBuff = "";
 
 void heartBeat()
 {
-	while (true)
-	{	
-		vLock.lock();
-		if (clientList.size())
-		{
-			std::this_thread::sleep_for(std::chrono::seconds(1));
-			//send hb msg
-			Msg msg;
-			msg.type = HEARTBEAT;
-			for (auto clientPtr : clientList)
-			{
-				msg.clientId = clientPtr->getId();
-				char classBuff[1024];
-				serialize(classBuff, &msg, sizeof(msg));
-				std::string msgStr(classBuff, sizeof(msg));
-				std::string buffer = producePacket(msgStr);
-				send(clientPtr->getSocket(), buffer.c_str(), buffer.length(), 0);
-				stdLock.lock();
-				std::cout << "heartBeat:send hb|" << std::endl;
-				stdLock.unlock();
-			}
+	//while (true)
+	//{	
+	//	vLock.lock();
+	//	if (clientList.size())
+	//	{
+	//		std::this_thread::sleep_for(std::chrono::seconds(1));
+	//		//send hb msg
+	//		Msg msg;
+	//		msg.type = HEARTBEAT;
+	//		for (auto clientPtr : clientList)
+	//		{
+	//			msg.clientId = clientPtr->getId();
+	//			char classBuff[1024];
+	//			memcpy(classBuff, &msg, sizeof(msg));
+	//			std::string msgStr(classBuff, sizeof(msg));
+	//			std::string buffer = producePacket(msgStr);
+	//			send(clientPtr->getSocket(), buffer.c_str(), buffer.length(), 0);
+	//			stdLock.lock();
+	//			std::cout << "heartBeat:send hb|" << std::endl;
+	//			stdLock.unlock();
+	//		}
 
-			
-			//test active clients
-			for (auto it = clientList.begin(); it != clientList.end();)
-			{
-				timeLock.lock();
-				TimePoint curTime = std::chrono::steady_clock::now();
-				int activeDuration = std::chrono::duration_cast<std::chrono::seconds>(curTime - it->get()->getActiveTime()).count();
-				timeLock.unlock();
-				if (activeDuration > 5)
-				{
-					it = clientList.erase(it);//to do close socket
-					std::cout << "erase client"  << std::endl;
-				}
-				else
-				{
-					it++;
-				}
-			}
-					 
-		}
-		vLock.unlock();
-	}
+	//		
+	//		//test active clients
+	//		for (auto it = clientList.begin(); it != clientList.end();)
+	//		{
+	//			timeLock.lock();
+	//			TimePoint curTime = std::chrono::steady_clock::now();
+	//			int activeDuration = std::chrono::duration_cast<std::chrono::seconds>(curTime - it->get()->getActiveTime()).count();
+	//			timeLock.unlock();
+	//			if (activeDuration > 5)
+	//			{
+	//				it = clientList.erase(it);//to do close socket
+	//				std::cout << "erase client"  << std::endl;
+	//			}
+	//			else
+	//			{
+	//				it++;
+	//			}
+	//		}
+	//				 
+	//	}
+	//	vLock.unlock();
+	//}
 
 }
 
@@ -83,8 +83,8 @@ void recvMsg(ClientPtr clientPtr)
 		{
 			break;
 		}
-		char buf[1024] = "";
-		int recvLength = recv(clientPtr->getSocket(), buf, 1024, 0);
+		char buf[500] = "";
+		int recvLength = recv(clientPtr->getSocket(), buf, 500, 0);
 
 		char str[1024] = "";
 		unsigned int length;
@@ -95,13 +95,15 @@ void recvMsg(ClientPtr clientPtr)
 		stdLock.lock();
 		std::cout << "recvMsg:get msg" << std::endl;
 		stdLock.unlock();
+
+		
 		//类型判断
 		switch (getType(str))
 		{
 			case HEARTBEAT:
 			{
 				Msg hbMsg;
-				deserialize(&hbMsg, str, length);
+				memcpy(&hbMsg, str, length);
 				TimePoint curTime = std::chrono::system_clock::now();
 				timeLock.lock();
 				clientPtr->setActiveTime(curTime);
@@ -115,22 +117,25 @@ void recvMsg(ClientPtr clientPtr)
 			case CHATMSG:
 			{
 				ChatMsg msg;
-				deserialize(&msg, str, length);
-				char buff[1024] = "";
-				produceChatMsg(buff, msg.content, msg.clientId, length);
+				memcpy(&msg, str, length);
+				//这里的length仅仅是chatMsg的部分还需要头和长度部分。
+				char content[250] = "";
+				produceChatMsg(content, msg.content, msg.clientId);//ChatMsg的长度就是sizeof(ChatMsg)
+				char buffer[250] = "";
+				producePacket(content, sizeof(msg), buffer);
 				vLock.lock();
 				for (auto c : clientList)
 				{
 					if (c->getId() != msg.clientId)
 					{
-						send(c->getSocket(), buff, length, 0);
+						send(c->getSocket(), buffer, length + 9, 0);
 					}
 					
 				}
 				vLock.unlock();
 				break;
 			}
-			default:
+			default: 
 				break;
 		}
 	}
@@ -147,9 +152,14 @@ void processNewClient(const SOCKET& soc)
 	std::thread t(recvMsg, std::ref(cp));
 	t.detach();
 	stdLock.lock();
-	std::cout << "New Client Connected" << "id:" << curClientId << std::endl;
+	std::cout << "New Client Connected " << "Id:" << curClientId << std::endl;
 	stdLock.unlock();
-
+	char content[250] = "";
+	std::string welcomeStr = "Welcome to Fly ChatRoom";
+	produceChatMsg(content, welcomeStr, curClientId);
+	char buffer[250] = "";
+	producePacket(content, sizeof(ChatMsg), buffer);
+	send(soc, buffer, 250, 0);
 }
 
 
@@ -192,8 +202,8 @@ int main()
 	lastTestTime = std::chrono::system_clock::now();
 
 	//start heart test
-	std::thread heartT(heartBeat);
-	heartT.detach();
+	//std::thread heartT(heartBeat);
+	//heartT.detach();
 
 	int len;
 	len = sizeof(SOCKADDR_IN);
