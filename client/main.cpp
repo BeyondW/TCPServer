@@ -1,10 +1,17 @@
 #include <iostream>
 #include <thread>
+#include <mutex>
 #include <winsock2.h>
+#include "Message.h"
+#include <iomanip>      // std::put_time
+#include <ctime>		// std::time_t, struct std::tm, std::localtime
 #pragma comment(lib,"ws2_32.lib")
 using namespace std;
 
-
+typedef std::chrono::system_clock::time_point TimePoint;
+std::mutex stdLock;
+std::string msgBuff = "";
+unsigned int clientId = 0;
 
 void getMsg(SOCKET clientSocket)
 {
@@ -17,26 +24,69 @@ void getMsg(SOCKET clientSocket)
 		{
 			break;
 		}
-		if (!memcmp(buf, "h", 1))
+		char str[1024] = "";
+		unsigned int length;
+		if (!splitPacket(buf, str, msgBuff, length))
 		{
-			char hBuf[2] = "h";
-			send(clientSocket, hBuf, strlen(hBuf) + 1, 0);
-			cout << "发送心跳包: " << buf << endl;
+			continue;
 		}
-		cout << "接收来自服务器的信息: " << buf << endl;
+		/*stdLock.lock();
+		std::cout << "recvMsg:get msg" << std::endl;
+		stdLock.unlock();*/
+		//类型判断
+		switch (getType(str))
+		{
+		case HEARTBEAT:
+		{
+			Msg hbMsg;
+			deserialize(&hbMsg, str, length);
+		/*	TimePoint curTime = std::chrono::system_clock::now();
+			auto t = std::chrono::system_clock::to_time_t(curTime);
+			stdLock.lock();
+			std::cout << "Server active time:" << std::put_time(std::localtime(&t), "%Y-%m-%d %X") << std::endl;
+			stdLock.unlock();*/
+			clientId = hbMsg.clientId;
+			char classBuff[1024];
+			serialize(classBuff, &hbMsg, sizeof(hbMsg));
+			std::string msgStr(classBuff, sizeof(hbMsg));
+			std::string buffer = producePacket(msgStr);
+			send(clientSocket, buffer.c_str(), buffer.length(), 0);
+			/*stdLock.lock();
+			std::cout << "heartBeat:send hb|" << std::endl;
+			stdLock.unlock();*/
+
+			break;
+		}
+		case CHATMSG:
+		{
+			ChatMsg msg;
+			deserialize(&msg, str, length);
+			stdLock.lock();
+			std::cout << msg.clientId << ":" << msg.content << endl;
+			stdLock.unlock();
+			break;
+		}
+		default:
+			break;
+		}
 	}
+
 }
 
 void rsnonBlockExample(const SOCKET& clientSocket)
 {
 	thread t(getMsg, clientSocket);
 	t.detach();
+	std::string str;
 	char buf[1024];
 	int iResult;
 	while (1)
 	{
-		cin >> buf;
-		iResult = send(clientSocket, buf, strlen(buf) + 1, 0);
+		cin >> str;
+		produceChatMsg(buf, str, clientId);
+		std::string msgStr(buf, sizeof(ChatMsg));
+		std::string buffer = producePacket(msgStr);
+		iResult = send(clientSocket, buffer.c_str(), length, 0);
 	}
 }
 

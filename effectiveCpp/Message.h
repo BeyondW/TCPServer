@@ -54,36 +54,28 @@ void produceChatMsg(char* buffer, const std::string& content, unsigned int id)
 }
 
 //拆包函数msgBuff:未处理的字节流，buff：当前接受到的字节流，str：内容字符串
-bool splitPacket(const char* curBuff, char* str, std::string& msgBuff, unsigned int& length)
+bool splitPacket(const char* curBuff, unsigned int recvLength, char* str, std::string& msgBuff, unsigned int& length)
 {
-	msgBuff.append(curBuff, 1024);
+	msgBuff.append(curBuff, recvLength);
 	auto pos = msgBuff.find("@HEAD");
 	if (pos != std::string::npos)
 	{
 		std::size_t testPos = pos + 4 + 4;
-		//消息长度的长度位是否越界
+		//消息长度是否越界
 		if (!isOverStringBound(testPos, msgBuff))
 		{
-			unsigned int msgLengthLength = msgBuff[pos + 5];
-			testPos += msgLengthLength;
+			unsigned int msgLength = 0;
+			memcpy(&msgLength, msgBuff.c_str() + testPos - 3, sizeof(unsigned int));
+			testPos += msgLength;
 			//消息长度位是否越界
 			if (!isOverStringBound(testPos, msgBuff))
 			{
-				std::string lengthStr = msgBuff.substr(pos + 5 + 1, msgLengthLength);
-				unsigned int msgLength = std::atoi(lengthStr.c_str());
-				testPos += msgLength;
-				//消息是否越界
-				if (!isOverStringBound(testPos, msgBuff))
-				{
 					length = msgLength;
 					msgBuff.copy(str, msgLength, testPos - msgLength + 1);
-					msgBuff.erase(0, testPos + 1);
+					msgBuff.erase(0, testPos + 1);//erase左开右闭
 					return true;
-				}
-
 			}
 		}
-
 	}
 	return false;
 }
